@@ -1,0 +1,4 @@
+sel vdisk file="F:\shop_drivebox_C_systemreserved.VHD"
+attach vdisk
+select partition 2
+assign letter=Q
