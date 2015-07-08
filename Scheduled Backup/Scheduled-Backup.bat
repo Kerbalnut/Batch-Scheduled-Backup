@@ -5,7 +5,7 @@ GOTO Setup
 System Requirements:
 -------------------------------------------------------------------------------
  - Windows 7 and up (untested on Vista)
- - PowerShell v?.
+ - PowerShell v?.0 (only tested with v4)
  
 To check PowerShell version, Run: 
 	$PSVersionTable.PSVersion
@@ -29,6 +29,7 @@ USE-CASE (Scenario): A shared computer running Windows 7 PRO SP1 is shut down an
 Script needs to detect this and work around it to make sure both SOURCE and DESTINATION disks match the Unique Identifiers we can get for them (using VOL), and detect that they are mounted and online. Then scan for changes between the two disks and copy differences over using ROBOCOPY.
 
 Non-goals: This version will *NOT* support the following features:
+•	Create a *.VHD for the user. This script assumes you've already made a VHD for your backup, or are capable of creating one manually.
 •	Looking for the *.VHD file anywhere besides the location it’s supposed to be at (-> FAIL. Make user look for VHD with a search)
 •	Create new *.VHD file for backup if it goes missing (maybe in the future, but this is an intensive process requiring a lot of work to implement that can be abused by ignorant users if automated)
 •	Warn user about size of changes for anything less than a gig. We assume here that the user will become concerned if the operation will copy more than just a few gigs. SizeCutoff will only be measured in GB. (Options to check for anything less will not be implemented)
