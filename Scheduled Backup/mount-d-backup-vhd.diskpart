@@ -1,4 +1,0 @@
-sel vdisk file="F:\shop_drivebox_d_data.VHD"
-attach vdisk
-select partition 1
-assign letter=R
