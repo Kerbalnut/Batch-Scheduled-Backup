@@ -12,9 +12,9 @@ Since this backup operation can delete files in the destination VHD (ROBOCOPY /M
 It's a given in this situation that other people will be using the computer this script is scheduled to run on. To reconcile this, custom error messages are written for nearly every known possibility, designed to describe in the simplest way necessary what went wrong and in most cases provide an easy SOLUTION for the user to fix the problem.
 
 ## Special Thanks:
-To Simon Sheppard for the superb resource that is SS64.com, as well as `DateMath.cmd` over at `http://ss64.com/nt/syntax-datemath.html`
+To Simon Sheppard for the superb resource that is SS64.com, as well as [DateMath.cmd](http://ss64.com/nt/syntax-datemath.html)!
 
-To Guy Chapman for `Parse-RobocopyLogs.ps1` over at `http://www.chapmancentral.co.uk/cloudy/2013/02/23/parsing-robocopy-logs-in-powershell/`
+To Guy Chapman for [Parse-RobocopyLogs.ps1](http://www.chapmancentral.co.uk/cloudy/2013/02/23/parsing-robocopy-logs-in-powershell/)!
 
 
 # v1.0 SHIPPED
@@ -56,7 +56,7 @@ To file a bug report, head over to the "Issues" section for this project here on
  2. What you expected to happen, and
  3. What actually happened.
 
-Disclaimer: There are absolutely no garauntees on a timeline for any bug to get fixed, or that they will ever get fixed at all. This is a free public project now after all, meaning I don't get paid for this and you are more than welcome to clone this repository, find & fix the bug yourself, and commit your changes back here.
+*Disclaimer:* There are absolutely no garauntees on a timeline for any bug to get fixed, or that they will ever get fixed at all. This is a free public project now after all, meaning I don't get paid for this and you are more than welcome to clone this repository, find & fix the bug yourself, and commit your changes back here.
 
 # v0.1 IN PRODUCTION
 Yes, this is a functional script that has been running in production as a backup solution for one of our drive machines in the shop.
