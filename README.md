@@ -19,12 +19,15 @@ It works. It's simple. If you're on Windows, don't use the Windows backup tool, 
  - Windows 7 and up (untested on Vista or earlier)
  - PowerShell v?.0
 
-### Dependencies: (These must stay in the same folder as Scheduled-Backup.bat)
+### Dependencies: 
+(These must stay in the same folder as script)
+
  - Parse-RobocopyLogs.ps1
  - DateMath.cmd
 
 ### Non-goals: 
 This version will *NOT* support the following features:
+
 	- Looking for the *.VHD file anywhere besides the location it’s supposed to be at (DESTINATION disk must keep same letter and VHD must stay in same location always. Make user fix drive letters or update location)
 	- Create new *.VHD file for backup if it goes missing (maybe in the future, but this is an intensive process requiring a lot of work to implement that can be abused by ignorant users if automated)
 	- Warn user about size of copy for anything less than a gig. We assume here that the user will only be concerned if the operation will copy more than just a few gigs. SizeCutoff will only be measured in GB. (Options to check for anything less will not be implemented)
