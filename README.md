@@ -57,7 +57,7 @@ To file a bug report, head over to the "Issues" section for this project here on
  2. What you expected to happen, and
  3. What actually happened.
 
-Disclaimer: There are absolutely no garauntees on a timeline for any bug to get fixed, or that they will ever get fixed at all. This is a free public project now, meaning I don't get paid for this and you are more than welcome to clone this repository, find & fix the bug yourself, and commit your changes back to master here. All that being said, I will do my best to update this as I find bugs and test & fix bugs others find if you are kind enough to post them here.
+Disclaimer: There are absolutely no garauntees on a timeline for any bug to get fixed, or that they will ever get fixed at all. This is a free public project now, meaning I don't get paid for this and you are more than welcome to clone this repository, find & fix the bug yourself, and commit your changes back to master here. All that being said, I will do my best to continually update this as I find bugs, and test & fix bugs others find if you are kind enough to post them here. :)
 
 # v0.1 IN PRODUCTION
 Yes, this is a functional script that has been running in production as a backup solution for one of our drive machines in the shop.
