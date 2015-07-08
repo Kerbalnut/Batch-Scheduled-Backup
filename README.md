@@ -16,8 +16,6 @@ To Simon Sheppard for the superb resource that is SS64.com, as well as [DateMath
 
 To Guy Chapman for [Parse-RobocopyLogs.ps1](http://www.chapmancentral.co.uk/cloudy/2013/02/23/parsing-robocopy-logs-in-powershell/)!
 
-To all the friends and great help over at [StackExchange](http://stackexchange.com/)!
-
 # v1.0 SHIPPED
 
 ### System Requirements:
