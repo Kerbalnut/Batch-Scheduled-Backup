@@ -2,22 +2,6 @@
 set "LocalPath=%~dp0"
 GOTO Setup
 :===============================================================================
-System Requirements:
--------------------------------------------------------------------------------
- - Windows 7 and up (untested on Vista)
- - PowerShell v?.0 (only tested with v4)
- 
-To check PowerShell version, Run: 
-	$PSVersionTable.PSVersion
-Also make sure PowerShell Execution Policy is not restricted:
-	Get-ExecutionPolicy
-	Set-ExecutionPolicy RemoteSigned
-
-Sub-script Dependencies: (These must stay in the same folder as this script to work)
--------------------------------------------------------------------------------
- - Parse-RobocopyLogs.ps1
- - DateMath.cmd
-
 A Proper Specification:
 -------------------------------------------------------------------------------
 Disclaimer: This script uses a copy method that can delete files at the destination (ROBOCOPY /MIR). It is designed to DETECT and ABORT itself before undertaking any potentially risky operation (e.g. abnormally large size of changes to copy).
@@ -61,42 +45,67 @@ THINGS TO ADD LATER (POSSIBLY):
 - Make it so by default only test copies are run, require -notest switch for copy to happen.
 
 
-INSTRUCTIONS:
+Sub-script Dependencies: (These must stay in the same folder as this script to work)
 -------------------------------------------------------------------------------
-Make sure PowerShell Execution Policy is not restricted:
+ - Parse-RobocopyLogs.ps1
+ - DateMath.cmd
+
+System Requirements:
+-------------------------------------------------------------------------------
+ - Windows 7 and up (untested on Vista)
+ - PowerShell v?.0 (only tested with v4)
+ 
+To check PowerShell version, Run: 
+	$PSVersionTable.PSVersion
+Also make sure PowerShell Execution Policy is not Restricted:
 	Get-ExecutionPolicy
 	Set-ExecutionPolicy RemoteSigned
-	
-TO CUSTOMIZE THIS SCRIPT: All variables you need peronalize this script are in the "SETUP" section below, between the :Setup and :Start tags.
 
-To get volume label and serial, Run this at command prompt:
+INSTRUCTIONS:
+-------------------------------------------------------------------------------
+TO CUSTOMIZE THIS SCRIPT: Modify the variables in the "SETUP" section below, between the :Setup and :Start tags, to personalize this for your needs.
+
+HERE ARE SOME METHODS to help you obtain those variables you need to set:
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+To get LABEL and SERIAL, enter this at command prompt:
 	VOL D:
 
-Replace "D:" with whatever drive letter your backup image (*.VHD) is at.
-Run command "VOL F:" to get LABEL and SERIAL of volumes (Where "F:" is the letter for the volume you need to get a LABEL and SERIAL for) 
-
+Where "D:" is the letter of the volume you need to get the LABEL and SERIAL for.
 e.g.:
-Volume in drive D is Data
-Volume Serial Number is 167A-F857
- - or - 
-Volume in drive C has no label.
-Volume Serial Number is E693-8EB5
+	Volume in drive D is Data
+	Volume Serial Number is 167A-F857
+	 - or - 
+	Volume in drive C has no label.
+	Volume Serial Number is E693-8EB5
 
-If volume has no label, set "LABEL=no label."
+If volume has no label, for the vars below set "LABEL=no label."
 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-To get SERIAL and LABEL of your VHD, you will first have to manually mount it (if it's not mounted already) and run a VOL command on it
-
-you can use these commands: 
+To manually mount your VHD in order to get the LABEL and SERIAL for it: 
 	DISKPART
 	select vdisk file="C:\TEST\demo.vhd"
 	attach vdisk
 
-It should attach successfully and automatically assign itself a letter. Use that letter to set the var VHDPREFERRED=.
+It should attach successfully and automatically assign itself a letter. Use that letter it picked for itself to set the var VHDPREFERRED=
 
 After you are done if you still have the same DISKPART window open you can skip the first command, otherwise run:
 	select vdisk file="C:\TEST\demo.vhd"
 	detach vdisk
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+To create a VHD if you don't have one, get into Disk Management thru the control panel or by opening the Run command in the Start Menu (WinKey + R) and typing:
+	diskmgmt.msc
+And create your VHD thru the action menu.
+	
+Or, run this at command prompt:
+	DISKPART
+	create vdisk file="C:\FooBar.vhd" maximum=16000
+	
+Where maximum= is the max size in MB the vdisk will be (i.e. 16,000 MB = 16 GB) 
+	attach vdisk
+	create partition primary
+	assign letter=p
+	format
 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ADDITIONAL CUSTOMIZATION: To customize the ROBOCOPY switches used, (ctrl + F) FIND :ptThreeC
@@ -105,23 +114,23 @@ ADDITIONAL CUSTOMIZATION: To customize the ROBOCOPY switches used, (ctrl + F) FI
 :Setup
 :: SOURCE DRIVE: Drive letter to be backed-up including colon (e.g. D:)
 set "DRIVETOBAK=C:"
-:: DESTINATION IMAGE FULL PATH: Backup Image (*.VHD) file name and full location (e.g. F:\shop_drivebox_d_data.VHD):
+:: BACKUP IMAGE FULL PATH: Backup Image (*.VHD) file name and full location (e.g. F:\shop_drivebox_d_data.VHD):
 set "BAKUPIMG=D:\test-mount.vhd"
 :: (Optional) VHD's preferred mount letter, including colon (:). When mounting VHD, it will try to use same letter every time. If you know what letter this is, it can save time by checking there first. If not found at the preferred location, all other drives will be scanned. Set to NULL to turn off ("VHDPREFERRED=")
 set "VHDPREFERRED=F:"
-:: Log directory path (e.g. C:\Users\Shop\Documents\Scheduled Backup\Logs) By default, it will use the Logs folder where this script is saved (set "BAKUPLOGPATH=%LocalPath%Logs"):
+:: Log folder path (e.g. C:\Users\Shop\Documents\Scheduled Backup\Logs) By default, it will use the Logs folder next to where this script is run (set "BAKUPLOGPATH=%LocalPath%Logs"):
 set "BAKUPLOGPATH=%LocalPath%Logs"
 :: SOURCE drive volume LABEL (drive to be backed-up):
 set "SOURCELABEL=no label."
 :: SOURCE drive volume SERIAL (drive to be backed-up):
 set "SOURCESERIAL=5CC8-F408"
-:: DESTINATION Backup volume LABEL (drive where *.VHD image is stored):
+:: DESTINATION volume LABEL (drive where *.VHD image is stored):
 set "BAKUPLABEL=Data"
-:: DESTINATION Backup volume SERIAL (drive where *.VHD image is stored):
+:: DESTINATION volume SERIAL (drive where *.VHD image is stored):
 set "BAKUPSERIAL=E4F5-E264"
-:: DESTINATION Virtual drive volume LABEL (mounted *.VHD drive label):
+:: BACKUPIMAGE VHD volume LABEL (mounted *.VHD drive label):
 set "BAKUPVHDLABEL=Test-VHD"
-:: DESTINATION Virtual drive volume SERIAL (mounted *.VHD drive serial number):
+:: BACKUPIMAGE VHD volume SERIAL (mounted *.VHD drive serial number):
 set "BAKUPVHDSERIAL=5AB6-FDEE"
 :: (Optional) Integer representing maximum number of days in age since last backup was performed before warning user. (i.e. IF last backup age >n Days Ago, warn user before proceeding) Set to zero (0) or NULL ("DATECUTOFF=") to turn this check off
 set "DATECUTOFF=21"
@@ -1408,7 +1417,7 @@ CALL DateMath %Year% %DayMonth% %MonthDay% - %LastBackupYear% %LastBackupMonth% 
 del "%Temp%\DateMathOutput.log"
 REM NULL Check :: If var is zero = Success. No hits.
 REM NULL Check :: If var is null = Success. Works. All NULL triggers hit successfully.
-IF NOT DEFINED DATECUTOFF set DATECUTOFF=0
+IF "%DATECUTOFF%"=="" set DATECUTOFF=0
 REM Zero Check :: If var is zero = Success. IF evaluation works, hit.
 REM Zero Check :: If var is null = FAILURE. Cmd crash.
 set WARNDATEOLD=no
@@ -1439,7 +1448,7 @@ REM If you would like to change ROBOCOPY options/switches, below here is the pla
 ::
 ::
 :: Define the options/switches you want here (will apply to real copy as well):
-set "ROBOSWITCHES=/mir /copyall /B /XF pagefile.sys hiberfil.sys Backup-PC-HomeComp3-18-11.TBI /XD "%DRIVETOBAK%\System Volume Information^" %DRIVETOBAK%\$Recycle.Bin ^/XJ ^/XO ^/tee"
+set "ROBOSWITCHES=/mir /copyall /B /XF pagefile.sys hiberfil.sys Backup-PC-HomeComp3-18-11.TBI /XD "%DRIVETOBAK%\System Volume Information^" %DRIVETOBAK%\$Recycle.Bin %DRIVETOBAK%\tmp ^/XJ ^/XO ^/tee"
 ::
 ::
 ::
@@ -1448,7 +1457,7 @@ REM This first ROBOCOPY is a test... (DO NOT MODIFY BELOW THIS LINE)
 IF EXIST "%BAKUPLOGPATH%\TEST-COPY-%DRIVETOBBLETTER%.log" del "%BAKUPLOGPATH%\TEST-COPY-%DRIVETOBBLETTER%.log"
 IF EXIST "%BAKUPLOGPATH%\RoboParseOutput.log" del "%BAKUPLOGPATH%\RoboParseOutput.log"
 REM If SizeCutoff is not set, escape here after the important VARS here are set.
-IF NOT DEFINED SIZECUTOFF set SIZECUTOFF=0
+IF "%SIZECUTOFF%"=="" set SIZECUTOFF=0
 IF %SIZECUTOFF% EQU 0 GOTO NoSizeLimit
 REM NOTIFY user:
 echo Measuring size of changes to copy...
@@ -1520,13 +1529,12 @@ set SizeUnits=%BytesCopiedTest:~-1%
 :: BytesCopiedTest="16.78 m"
 :: BytesCopiedTest="1.2 k"
 set WARNSIZE=no
+IF "%SizeCopied%"=="" set "SizeCopied=0"
 IF "%BytesCopiedTest%"=="0" set "SizeCopied=0"
-IF "%SizeCopied%"=="" GOTO NoSizeLimit
-IF /I NOT "%SizeUnits%"=="g" GOTO NoSizeLimit
-IF %SizeCopied% EQU 0 GOTO NoSizeLimit
+IF "%BytesCopiedTest%"=="" echo Size limit set to %SIZECUTOFF% GB but detected changes are: "%BytesCopiedTest%"&GOTO Fail
 IF /I "%SizeUnits%"=="g" (
 	IF %SizeCopied% GTR %SIZECUTOFF% (
-		set WARNSIZE=yes
+		set "WARNSIZE=yes"
 		SET /A "SizeDiff=SizeCopied-SIZECUTOFF"
 	)
 )
@@ -1542,7 +1550,7 @@ IF "%WARNDATEOLD%"=="yes" (
 IF "%SystemsChecks%"=="JustDateErr" GOTO NOTIFYDATEOLD
 IF "%SystemsChecks%"=="NoWong" GOTO NoTingWong
 REM Size [and Date] Warning (comBINED)
-echo %DRIVETOBAK%\%SOURCELABEL% Backup - Step 3/4: WARNING = Size of changeset very large.
+echo %DRIVETOBAK%\%SOURCELABEL% Backup - Step 3/4: WARNING = Size of changeset is very large.
 echo(
 echo Size of planned copy is %BytesCopiedTest%, which is %SizeDiff% GB above the warning (%SIZECUTOFF% GB).
 echo(
