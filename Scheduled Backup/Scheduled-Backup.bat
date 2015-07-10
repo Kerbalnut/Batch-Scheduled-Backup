@@ -503,6 +503,7 @@ IF "%MountDPStatus%"=="AlrAttached" (
 IF "%MountDPStatus%"=="Success" (
 	IF "%MountDPLOne%"=="BAD" echo DISKPART: %DPlineone% & echo.
 )
+set VHDMountResults=FALSE
 IF NOT "%MountDPStatus%"=="FAIL" GOTO DPMountVHDsuccess
 REM DISKPART VHD mount failed. Serious Error. Danger Will Robinson!
 echo %DRIVETOBAK%\%SOURCELABEL% Backup - Step 2/4: ERROR = Failed to mount VHD.
@@ -513,10 +514,13 @@ echo DISKPART's response:
 echo %DPlineone%
 echo %DPlinetwo%
 echo %DPlinethree%
-"%Temp%\mount-status.log"
+REM Fail code will show log with this switch on.
+set VHDMountResults=True
 GOTO Fail
 :DPMountVHDsuccess
-del "%Temp%\mount-status.log"
+REM del "%Temp%\mount-status.log"
+REM We can't delete this yet, if the VHD fails to be found we want it to show user.
+REM Will be deleted again at :VHDLabelMatchToo
 REM -------------------------------------------------------------------------------
 REM End ptTwoA! VHD was successfully mounted.
 
@@ -526,6 +530,7 @@ REM Step 2C: Check that VHD was mounted o.k. (All were 'successful')
 REM If we have a preferred drive letter for the VHD to be mounted to, check there first.
 IF [%VHDPREFERRED%]==[] GOTO NoPreferredDriveLetter
 REM -------------------------------------------------------------------------------
+IF EXIST "%Temp%\vhd-preferred-check.txt" del "%Temp%\vhd-preferred-check.txt"
 VOL %VHDPREFERRED% >%Temp%\vhd-preferred-check.txt 2>&1
 REM Redirect all output *and* errors to one file
 set "VolLabel="
@@ -1244,17 +1249,26 @@ REM ============================================================================
 REM ===============================================================================
 REM -------------------------------------------------------------------------------
 :VHDNoSerialNoMatch
+set VHDMountResults=True
 REM Not a single drive's serial number matched what we should has for the VHD's serial.
-echo %DRIVETOBAK%\%SOURCELABEL% Backup - Step 2/4: ERROR = Could not find VHD letter
+echo %DRIVETOBAK%\%SOURCELABEL% Backup - Step 2/4: ERROR = Could not find VHD's letter
 echo(
-echo "%BAKUPFILE%" was supposedly mounted successfully.
+echo "%BAKUPFILE%" was ^(supposedly^) mounted successfully.
 echo(
 echo But a drive matching serial number "%BAKUPVHDSERIAL%" could not be found.
 echo(
-echo SOLUTION: Mount VHD manually, run VOL command, and ensure correct serial number
-echo defined in the beginning of this script is set for variable "BAKUPVHDSERIAL".
+echo SOLUTION: Ensure correct serial number is set for variable BAKUPVHDSERIAL=
+echo(
+echo Or, if the VHD mounted successfully but was not detected, you can run this 
+echo script again or re-scan the drive letters for the VHD.
+echo(
+echo Would you like to 'S'can the drive letters again, or 'E'xit?
+CHOICE /C SE /M "'S'can, or 'E'xit?"
+IF ERRORLEVEL 2 GOTO Fail
+IF ERRORLEVEL 1 echo.&GOTO ptTwoB
 GOTO Fail
 :VHDSerialMatch
+set VHDMountResults=FALSE
 REM We got a match for the SERIAL number at drive letter %VHDDiscoveredLetter% Wooo!
 REM Now lets check that the Labels match too just for shits.
 IF "%CheckTestVHDLabel%"=="PASS" GOTO VHDLabelMatchToo
@@ -1275,6 +1289,7 @@ GOTO Fail
 :VHDLabelMatchOverride
 echo(
 :VHDLabelMatchToo
+IF EXIST "%Temp%\mount-status.log" del "%Temp%\mount-status.log"
 REM We found the VHD! It's at %VHDDiscoveredLetter% and we got a SERIAL and LABEL match on that location!
 echo %DRIVETOBAK%\%SOURCELABEL% Backup - Step 2/4: VHD mounted at %VHDDiscoveredLetter%!
 echo(
@@ -1290,6 +1305,8 @@ IF NOT EXIST "%BAKUPLOGPATH%\last-backup-%DRIVETOBBLETTER%.log" (
 	echo Previous backup log "last-backup-%DRIVETOBBLETTER%.log" could not be found. Is this the first
 	echo backup ever done?
 	echo.
+	IF "%DATECUTOFF%"=="" set DATECUTOFF=0
+	set WARNDATEOLD=no
 	GOTO NoLastBackupLog
 	REM :NoLastBackupLog is after :ptThreeB, as that section also requires last-backup-Var.log
 )
@@ -1338,10 +1355,34 @@ REM ROBOCOPY output text (end):
 :-------------------------------------------------------------------------------
 :SkipRobocopyOutput
 IF EXIST "%BAKUPLOGPATH%\%Year%-%DayMonth%-%MonthDay%-%DRIVETOBBLETTER%-PREVBACKUP-Results.csv" del "%BAKUPLOGPATH%\%Year%-%DayMonth%-%MonthDay%-%DRIVETOBBLETTER%-PREVBACKUP-Results.csv"
-IF EXIST "%Temp%\RoboParseOutput.log" del "%Temp%\RoboParseOutput.log"
+IF EXIST "%BAKUPLOGPATH%\RoboParseOutput.log" del "%BAKUPLOGPATH%\RoboParseOutput.log"
+REM Before scanning log, check if last-backup.log is complete
+set "IsLogComplete=no"
+FOR /F "skip=23 tokens=1-6" %%G IN (%BAKUPLOGPATH%\last-backup-%DRIVETOBBLETTER%.log) DO (
+	REM "               Total    Copied   Skipped  Mismatch    FAILED    Extras"
+	REM "   Ended : Fri Apr 18 15:55:17 2014"
+	IF "%%G"=="Total" (
+		IF "%%H"=="Copied" (
+			IF "%%I"=="Skipped" (
+				IF "%%J"=="Mismatch" (
+					IF "%%K"=="FAILED" (
+						IF "%%L"=="Extras" (
+							set "IsLogComplete=yes"
+						)
+					)
+				)
+			)
+		)
+	)
+)
+IF "%IsLogComplete%"=="no" (
+	REM Last-backup.log is not complete, it was interrupted or failed. The powershell script below will hang on an uncomplete log. NOTIFY user and continue on automatically.
+	echo The last-backup-%DRIVETOBBLETTER%.log is incomplete. Was previous backup operation interrupted?
+	echo.
+	GOTO NoLastBackupLog
+)
 REM Using Parse-RobocopyLogs.ps1 requires PowerShell v?
-PowerShell . '%~dp0\Parse-RobocopyLogs.ps1' -fp '%BAKUPLOGPATH%\last-backup-%DRIVETOBBLETTER%.log' -outputfile '%BAKUPLOGPATH%\%Year%-%DayMonth%-%MonthDay%-%DRIVETOBBLETTER%-PREVBACKUP-Results' > "%Temp%\RoboParseOutput.log"
-
+PowerShell . '%~dp0\Parse-RobocopyLogs.ps1' -fp '%BAKUPLOGPATH%\last-backup-%DRIVETOBBLETTER%.log' -outputfile '%BAKUPLOGPATH%\%Year%-%DayMonth%-%MonthDay%-%DRIVETOBBLETTER%-PREVBACKUP-Results' > "%BAKUPLOGPATH%\RoboParseOutput.log"
 REM Using Parse-RobocopyLogs.ps1 creates *.csv files with some columns empty/missing.
 REM But the format of the *.csv it creates leaves no space or tab in-between empty values, creating blocks of consecutive commas (,,,,,) which don't parse well with FOR /F
 CD /D "%BAKUPLOGPATH%"
@@ -1381,10 +1422,10 @@ REM If the last backup failed, I dunno what the user should do, besides try agai
 REM NOTIFY user:
 echo Last backup operation may have had serious failure or was interrupted: 
 echo(
-type "%Temp%\RoboParseOutput.log"
+type "%BAKUPLOGPATH%\RoboParseOutput.log"
 echo(
 :LastBackupSuccessful
-del "%Temp%\RoboParseOutput.log"
+del "%BAKUPLOGPATH%\RoboParseOutput.log"
 REM Found last backup log, parse'd log, found # of files failed (supposedly), we ready to proceed!
 REM -------------------------------------------------------------------------------
 REM End ptThreeA! Informed user of any failed files found last backup!
@@ -1413,8 +1454,8 @@ IF "%LastBackupMonth%"=="Oct" set LastBackupMonth=10
 IF "%LastBackupMonth%"=="Nov" set LastBackupMonth=11
 IF "%LastBackupMonth%"=="Dec" set LastBackupMonth=12
 
-CALL DateMath %Year% %DayMonth% %MonthDay% - %LastBackupYear% %LastBackupMonth% %LastBackupDay% > "%Temp%\DateMathOutput.log"
-del "%Temp%\DateMathOutput.log"
+CALL DateMath %Year% %DayMonth% %MonthDay% - %LastBackupYear% %LastBackupMonth% %LastBackupDay% > "%BAKUPLOGPATH%\DateMathOutput.log"
+del "%BAKUPLOGPATH%\DateMathOutput.log"
 REM NULL Check :: If var is zero = Success. No hits.
 REM NULL Check :: If var is null = Success. Works. All NULL triggers hit successfully.
 IF "%DATECUTOFF%"=="" set DATECUTOFF=0
@@ -1508,6 +1549,44 @@ REM ROBOCOPY Options/Switches Descriptions: (NOTE THIS LIST IS NOT COMPLETE)
 REM - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 REM Check ROBOCOPY test log to find size of changes before performing copy.
 IF EXIST "%BAKUPLOGPATH%\RoboParseOutput.log" del "%BAKUPLOGPATH%\RoboParseOutput.log"
+REM Before scanning log, check if TEST-COPY-%DRIVETOBBLETTER%.log is complete
+set "IsLogComplete=no"
+FOR /F "skip=23 tokens=1-6" %%G IN (%BAKUPLOGPATH%\TEST-COPY-%DRIVETOBBLETTER%.log) DO (
+	REM "               Total    Copied   Skipped  Mismatch    FAILED    Extras"
+	REM "   Ended : Fri Apr 18 15:55:17 2014"
+	IF "%%G"=="Total" (
+		IF "%%H"=="Copied" (
+			IF "%%I"=="Skipped" (
+				IF "%%J"=="Mismatch" (
+					IF "%%K"=="FAILED" (
+						IF "%%L"=="Extras" (
+							set "IsLogComplete=yes"
+						)
+					)
+				)
+			)
+		)
+	)
+)
+IF "%IsLogComplete%"=="no" (
+	REM Last-backup.log is not complete, likely user interrupted it. The powershell script below will hang on an uncomplete log. Ask user what they intend to do. (WARN)
+	echo.
+	echo Operation was interrupted. Size of changes to copy is unknown.
+	echo.
+	echo Would you like to Proceed regardless of size, Re-measure changes, or Exit?
+	CHOICE /C PRE /M "'P'roceed, 'R'etry or 'E'xit?"
+	IF ERRORLEVEL 3 GOTO Fail
+	IF ERRORLEVEL 2 (
+		echo.
+		GOTO ptThreeC)
+	IF ERRORLEVEL 1 (
+		echo.
+		set WARNSIZE=no
+		set "SIZECUTOFF=skip"
+		set "SizeCopied=0"
+		GOTO NoSizeLimit)
+	GOTO Fail
+)
 PowerShell . '%~dp0\Parse-RobocopyLogs.ps1' -fp '%BAKUPLOGPATH%\TEST-COPY-%DRIVETOBBLETTER%.log' -outputfile '%BAKUPLOGPATH%\%Year%-%DayMonth%-%MonthDay%-%DRIVETOBBLETTER%-TESTCOPY-Results' > "%BAKUPLOGPATH%\RoboParseOutput.log"
 
 REM Add spaces between commas for blank column entries
@@ -1540,6 +1619,7 @@ IF /I "%SizeUnits%"=="g" (
 )
 :NoSizeLimit
 IF %SIZECUTOFF% EQU 0 set WARNSIZE=no
+IF "%SizeCopied%"=="" set "SizeCopied=0"
 REM WARNDATEOLD gets set above after the check if DATECUTOFF is active. If it is, it is.
 REM Same with WARNSIZE, it only gets set if results from the size check are set and do FAIL.
 IF "%WARNDATEOLD%"=="yes" (
@@ -1582,12 +1662,17 @@ echo Last backup completed %DaysSinceLastBackup% days ago.
 :CopyOK
 echo(
 :NoTingWong
+IF "%SizeCopied%"=="" set "SizeCopied=0"
 REM NOTIFY user:
 IF %SIZECUTOFF% EQU 0 (
 	echo %DRIVETOBAK%\%SOURCELABEL% Backup - Step 3/4: Backup is working...
 ) ELSE (
 	IF %SizeCopied% EQU 0 (
-		echo %DRIVETOBAK%\%SOURCELABEL% Backup - Step 3/4: No changes to copy!
+		IF "%SIZECUTOFF%"=="skip" (
+			echo %DRIVETOBAK%\%SOURCELABEL% Backup - Step 3/4: Copying unknown size...
+		) ELSE (
+			echo %DRIVETOBAK%\%SOURCELABEL% Backup - Step 3/4: No changes to copy!
+		)
 	) ELSE (
 		echo %DRIVETOBAK%\%SOURCELABEL% Backup - Step 3/4: Copying %BytesCopiedTest% to backup...
 	)
@@ -1611,9 +1696,13 @@ set "NOPROGRESS=/NP "
 set "NOPROGRESS="
 set "RETRYSETTINS=/r:0 /w:0 "
 set "RETRYSETTINS=/r:1 /w:2 "
+:: REMOVE-!
+set "SHHHHTESTING=/l "
 
 REM Here we go...
-IF %SizeCopied% EQU 0 GOTO NoChangesToCopy
+IF %SizeCopied% EQU 0 (
+	IF NOT "%SIZECUTOFF%"=="skip" GOTO NoChangesToCopy
+)
 IF EXIST "%BAKUPLOGPATH%\last-backup-%DRIVETOBBLETTER%.log" del "%BAKUPLOGPATH%\last-backup-%DRIVETOBBLETTER%.log"
 
 START "Copying new and changed files to backup..." /W "robocopy" %DRIVETOBAK%\ %VHDDiscoveredLetter%\ *.* %ROBOSWITCHES% %NOPROGRESS%%RETRYSETTINS%%PRINTTOSCREEN%%SHHHHTESTING%/log:"%BAKUPLOGPATH%\last-backup-%DRIVETOBBLETTER%.log"
@@ -1686,6 +1775,31 @@ REM Last step! Was backup successful? Parse logs to find any copy errors.
 REM -------------------------------------------------------------------------------
 IF EXIST "%BAKUPLOGPATH%\%Year%-%DayMonth%-%MonthDay%-%DRIVETOBBLETTER%-Results.csv" del "%BAKUPLOGPATH%\%Year%-%DayMonth%-%MonthDay%-%DRIVETOBBLETTER%-Results.csv"
 IF EXIST "%Temp%\RoboParseOutput.log" del "%Temp%\RoboParseOutput.log"
+REM Before scanning log, check if last-backup.log is complete
+set "IsLogComplete=no"
+FOR /F "skip=23 tokens=1-6" %%G IN (%BAKUPLOGPATH%\last-backup-%DRIVETOBBLETTER%.log) DO (
+	REM "               Total    Copied   Skipped  Mismatch    FAILED    Extras"
+	REM "   Ended : Fri Apr 18 15:55:17 2014"
+	IF "%%G"=="Total" (
+		IF "%%H"=="Copied" (
+			IF "%%I"=="Skipped" (
+				IF "%%J"=="Mismatch" (
+					IF "%%K"=="FAILED" (
+						IF "%%L"=="Extras" (
+							set "IsLogComplete=yes"
+						)
+					)
+				)
+			)
+		)
+	)
+)
+IF "%IsLogComplete%"=="no" (
+	REM Last-backup.log is not complete, user interrupted it or it failed. The powershell script below will hang on an uncomplete log.
+	echo.
+	echo The backup operation was interrupted. "last-backup-%DRIVETOBBLETTER%.log" is incomplete.
+	GOTO Fail
+)
 REM Using Parse-RobocopyLogs.ps1 requires PowerShell v?
 PowerShell . '%~dp0\Parse-RobocopyLogs.ps1' -fp '%BAKUPLOGPATH%\last-backup-%DRIVETOBBLETTER%.log' -outputfile '%BAKUPLOGPATH%\%Year%-%DayMonth%-%MonthDay%-%DRIVETOBBLETTER%-Results' > "%Temp%\RoboParseOutput.log"
 REM Using Parse-RobocopyLogs.ps1 creates *.csv files with some columns empty/missing.
@@ -1824,8 +1938,17 @@ pause
 exit
 
 :Fail
+set FAILLogs=FALSE
+IF "%VHDMountResults%"=="True" set FAILLogs=True
+IF EXIST "%Temp%\RoboParseOutput.log" del "%Temp%\RoboParseOutput.log"
+IF EXIST "%Temp%\unmount-status.log" del "%Temp%\unmount-status.log"
 echo(
-echo The script could not continue.
+IF "%FAILLogs%"=="True" (
+	echo The script could not continue. Logs will be deleted after you are finished.
+) ELSE (
+	echo The script could not continue.)
 echo(
+IF "%VHDMountResults%"=="True" "%Temp%\mount-status.log"
 pause
+IF EXIST "%Temp%\mount-status.log" del "%Temp%\mount-status.log"
 exit
